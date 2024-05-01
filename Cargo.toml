@@ -19,12 +19,12 @@ include = [
 ]
 [features]
 defmt = ["dep:defmt"]
+littlefs2 = ["dep:littlefs2"]
 
 [dependencies]
 embedded-hal = "1.0"
 defmt = { version = "0.3", optional = true }
-
-
+littlefs2 = { version = "0.4", optional = true }
 
 # Necessary to load the example code.
 [dev-dependencies]

@@ -97,3 +97,10 @@ impl From<SR3> for u8 {
         (sr3.hold_or_reset as u8) << 7 | (sr3.driver_strength & 0b11) << 5 | (sr3.wps as u8) << 2
     }
 }
+
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Debug, PartialEq)]
+pub struct FlashConfig {
+    pub total_size: usize,
+    pub page_size: usize,
+}

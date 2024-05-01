@@ -1,5 +1,5 @@
 ///
-use crate::{private, Error};
+use crate::{private, registers::Register, Error};
 use embedded_hal::spi;
 use embedded_hal::spi::Operation;
 
@@ -7,6 +7,13 @@ use embedded_hal::spi::Operation;
 #[derive(Debug)]
 pub struct SpiInterface<SPI> {
     pub(crate) spi: SPI,
+}
+
+impl<SPI> SpiInterface<SPI> {
+    /// return the bus from ownership by the interface
+    pub fn destroy(self) -> SPI {
+        return self.spi;
+    }
 }
 
 /// Read data
@@ -89,6 +96,13 @@ where
         data[2] = ((addr >> 8) & 0xFF) as u8;
         data[3] = (addr & 0xFF) as u8;
 
+        // write enable first
+        self.spi
+            .transaction(&mut [Operation::Write(
+                &[Register::VOLATILE_SR_WRITE_ENABLE as u8],
+            )])
+            .map_err(Error::Comm)?;
+
         self.spi
             .transaction(&mut [Operation::Write(&data), Operation::Write(payload)])
             .map_err(Error::Comm)?;
@@ -96,6 +110,13 @@ where
     }
 
     fn write_data(&mut self, payload: &[u8]) -> Result<(), Self::Error> {
+        // write enable first
+        self.spi
+            .transaction(&mut [Operation::Write(
+                &[Register::VOLATILE_SR_WRITE_ENABLE as u8],
+            )])
+            .map_err(Error::Comm)?;
+
         self.spi.write(payload).map_err(Error::Comm)
     }
 }

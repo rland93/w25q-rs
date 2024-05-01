@@ -40,7 +40,12 @@ fn main() -> ! {
 
     let spidev = ExclusiveDevice::new_no_delay(spi1, cs).unwrap();
 
-    let mut w25q_dev = w25q::W25Q::new_with_spi(spidev);
+    let flashcfg = w25q::FlashConfig {
+        total_size: 4096 * 4096, // 16MB
+        page_size: 256,
+    };
+
+    let mut w25q_dev = w25q::W25Q::new_with_spi(spidev, flashcfg, delay);
 
     loop {
         // Read Unique ID
@@ -55,6 +60,18 @@ fn main() -> ! {
         );
         let sfdp = w25q_dev.read_sfdp().unwrap();
         debug!("SFDP: {:?}", sfdp);
+
+        w25q_dev.read(0, &mut [0u8; 256]).unwrap();
+        debug!("Read: {:02x}", &mut [0u8; 256] as &[u8; 256]);
+
+        w25q_dev.write(0, &[0xAF; 256]).unwrap();
+        debug!("Write: {:02x}", &[0xAF; 256]);
+
+        w25q_dev.read(0, &mut [0u8; 256]).unwrap();
+        debug!("Read: {:02x}", &mut [0u8; 256] as &[u8; 256]);
+
+        w25q_dev.erase(0, 4096).unwrap();
+        debug!("Erase: 4096");
 
         delay.delay_ms(1000);
     }

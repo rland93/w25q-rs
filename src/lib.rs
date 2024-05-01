@@ -12,11 +12,17 @@ mod mem;
 mod registers;
 mod types;
 
+use embedded_hal::delay::DelayNs;
+
+pub use crate::types::*;
+
 /// BMI088 device object.
 #[derive(Debug)]
-pub struct W25Q<DI> {
+pub struct W25Q<DI, D> {
     /// Digital interface (spi)
     iface: DI,
+    config: FlashConfig,
+    delay: D,
 }
 
 mod private {
@@ -26,12 +32,18 @@ mod private {
     impl<SPI> Sealed for interface::SpiInterface<SPI> {}
 }
 
-impl<SPI> W25Q<interface::SpiInterface<SPI>> {
-    /// Create new instance of the BMI088 device communicating through SPI.
-    pub fn new_with_spi(spi: SPI) -> Self {
+impl<SPI, D> W25Q<interface::SpiInterface<SPI>, D> {
+    /// Create new driver instance
+    pub fn new_with_spi(spi: SPI, config: FlashConfig, delay: D) -> Self {
         W25Q {
             iface: interface::SpiInterface { spi },
+            config: config,
+            delay: delay,
         }
+    }
+
+    pub fn destroy(self) -> SPI {
+        return self.iface.destroy();
     }
 }
 
