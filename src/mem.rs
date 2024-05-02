@@ -130,14 +130,14 @@ where
             let sector_addr = sector_index * crate::SECTOR_SIZE;
             self.iface
                 .write_addr(Register::SECTOR_ERASE as u8, sector_addr as u32, &[])?;
-        }
-        // keep busy while device erases
-        loop {
-            // 45 ms typical. Up to 400ms.
-            self.delay.delay_ms(45);
-            let sr1 = self.read_sr1()?;
-            if !sr1.busy {
-                break;
+            // keep busy while sector erases
+            loop {
+                // 45 ms typical. Up to 400ms.
+                self.delay.delay_ms(45);
+                let sr1 = self.read_sr1()?;
+                if !sr1.busy {
+                    break;
+                }
             }
         }
 
