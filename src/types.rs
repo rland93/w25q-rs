@@ -7,6 +7,9 @@ pub enum SR {
     SR3(SR3),
 }
 
+/// SR1
+/// ////////////////////////////////////
+
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, PartialEq, Default)]
 pub struct SR1 {
@@ -42,6 +45,18 @@ impl From<SR1> for u8 {
     }
 }
 
+impl SR1 {
+    pub fn to_writable_u8(&self) -> u8 {
+        let mut result = 0;
+        result |= (self.sec as u8) << 6;
+        result |= (self.tb as u8) << 5;
+        result |= (self.bp & 0b111) << 2;
+        result
+    }
+}
+
+/// SR2
+/// ////////////////////////////////////
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, PartialEq, Default)]
 pub struct SR2 {
@@ -74,6 +89,17 @@ impl From<SR2> for u8 {
     }
 }
 
+impl SR2 {
+    pub fn to_writable_u8(&self) -> u8 {
+        let mut result = 0;
+        result |= (self.cmp as u8) << 6;
+        result |= (self.qe as u8) << 1;
+        result |= (self.lb & 0b111) << 3;
+        result
+    }
+}
+/// SR3
+/// ////////////////////////////////////
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, PartialEq, Default)]
 pub struct SR3 {
@@ -98,9 +124,11 @@ impl From<SR3> for u8 {
     }
 }
 
-#[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[derive(Debug, PartialEq)]
-pub struct FlashConfig {
-    pub total_size: usize,
-    pub page_size: usize,
+impl SR3 {
+    pub fn to_writable_u8(&self) -> u8 {
+        let mut result = 0;
+        result |= (self.wps as u8) << 2;
+        result |= (self.driver_strength & 0b11) << 5;
+        result
+    }
 }
