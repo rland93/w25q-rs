@@ -7,6 +7,8 @@ where
     P: spi::SpiDevice,
     D: delay::DelayNs,
 {
+    /// read the (u32, u32) unique identifier for the chip. identifier is
+    /// different for each hardware
     pub fn read_unique_id(&mut self) -> Result<(u32, u32), P::Error> {
         // register + 4 dummy bytes + 8 bytes of data
         let mut data = [0xFF; 12];
@@ -24,6 +26,7 @@ where
         Ok((u32_1, u32_2))
     }
 
+    /// read the JEDEC ID which is the same for every chip
     pub fn read_jedec_id(&mut self) -> Result<(u8, u8, u8), P::Error> {
         let mut data = [0xFF; 3];
 
@@ -32,15 +35,17 @@ where
         Ok((data[0], data[1], data[2]))
     }
 
+    /// read the sfdp as bytes
     pub fn read_sfdp(&mut self) -> Result<[u8; 256], P::Error> {
         let mut data = [0xFF; 256];
         let addr = 0x00000000;
 
-        self.read_from_addr(Register::READ_SFDP_REGISTER as u8, addr, &mut data)?;
+        self.read_from_address(Register::READ_SFDP_REGISTER as u8, addr, &mut data)?;
 
         Ok(data)
     }
 
+    /// set the non-volatile write enable bit
     pub fn write_enable(&mut self) -> Result<(), P::Error> {
         // check first and early return if we can
         if self.can_write()? {
@@ -48,27 +53,31 @@ where
         }
         // otherwise enable write
         let reg = Register::WRITE_ENABLE as u8;
-        self.write_data(&[reg])?;
+        self.write_data(reg, &[])?;
         Ok(())
     }
 
+    /// check if we can write
     pub fn can_write(&mut self) -> Result<bool, P::Error> {
         let sr1 = self.read_sr1()?;
         Ok(sr1.wel)
     }
 
+    /// read status register 1
     pub fn read_sr1(&mut self) -> Result<SR1, P::Error> {
         let mut data = [0xFF];
         self.read_data(Register::READ_STATUS_REGISTER_1 as u8, &mut data)?;
         Ok(SR1::from(data[0]))
     }
 
+    /// read status register 2
     pub fn read_sr2(&mut self) -> Result<SR2, P::Error> {
         let mut data = [0xFF];
         self.read_data(Register::READ_STATUS_REGISTER_2 as u8, &mut data)?;
         Ok(SR2::from(data[0]))
     }
 
+    /// read status register 3
     pub fn read_sr3(&mut self) -> Result<SR3, P::Error> {
         let mut data = [0xFF];
         self.read_data(Register::READ_STATUS_REGISTER_3 as u8, &mut data)?;

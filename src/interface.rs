@@ -1,3 +1,4 @@
+/// standard operations that are common between registers/commands.
 use crate::{registers::Register, Error, W25Q};
 use embedded_hal::{delay, spi};
 
@@ -6,44 +7,47 @@ where
     P: spi::SpiDevice,
     D: delay::DelayNs,
 {
-    pub(crate) fn read_from_addr(
+    /// with `command` at `address`, read bytes into payload.
+    pub(crate) fn read_from_address(
         &mut self,
-        register: u8,
-        addr: u32,
+        command: u8,
+        address: u32,
         payload: &mut [u8],
     ) -> Result<u8, P::Error> {
-        // [register, addr, addr, addr] MSB
+        // [command, address, address, address] MSB
         let mut data = [0; 4];
-        data[0] = register;
-        data[1] = ((addr >> 16) & 0xFF) as u8;
-        data[2] = ((addr >> 8) & 0xFF) as u8;
-        data[3] = (addr & 0xFF) as u8;
+        data[0] = command;
+        data[1] = ((address >> 16) & 0xFF) as u8;
+        data[2] = ((address >> 8) & 0xFF) as u8;
+        data[3] = (address & 0xFF) as u8;
 
         self.periph
             .transaction(&mut [spi::Operation::Write(&data), spi::Operation::Read(payload)])?;
         Ok(data[0])
     }
 
-    pub(crate) fn read_data(&mut self, register: u8, payload: &mut [u8]) -> Result<(), P::Error> {
+    /// with `command` (no address), read bytes into payload.
+    pub(crate) fn read_data(&mut self, command: u8, payload: &mut [u8]) -> Result<(), P::Error> {
         self.periph.transaction(&mut [
-            spi::Operation::Write(&[register]),
+            spi::Operation::Write(&[command]),
             spi::Operation::Read(payload),
         ])?;
         Ok(())
     }
 
-    pub(crate) fn write_addr(
+    /// write bytes from `payload` with command `command` at `address`
+    pub(crate) fn write_address(
         &mut self,
-        register: u8,
-        addr: u32,
+        command: u8,
+        address: u32,
         payload: &[u8],
     ) -> Result<(), P::Error> {
-        // [register, addr, addr, addr] MSB
+        // [command, address, address, address] MSB
         let mut data = [0; 4];
-        data[0] = register;
-        data[1] = ((addr >> 16) & 0xFF) as u8;
-        data[2] = ((addr >> 8) & 0xFF) as u8;
-        data[3] = (addr & 0xFF) as u8;
+        data[0] = command;
+        data[1] = ((address >> 16) & 0xFF) as u8;
+        data[2] = ((address >> 8) & 0xFF) as u8;
+        data[3] = (address & 0xFF) as u8;
 
         // write enable first
         self.periph.transaction(&mut [spi::Operation::Write(&[
@@ -55,13 +59,12 @@ where
         Ok(())
     }
 
-    pub(crate) fn write_data(&mut self, payload: &[u8]) -> Result<(), P::Error> {
-        // write enable first
-        self.periph.transaction(&mut [spi::Operation::Write(&[
-            Register::VOLATILE_SR_WRITE_ENABLE as u8,
-        ])])?;
-
-        self.periph.write(payload)?;
+    /// with `command`, write data from `payload`
+    pub(crate) fn write_data(&mut self, command: u8, payload: &[u8]) -> Result<(), P::Error> {
+        self.periph.transaction(&mut [
+            spi::Operation::Write(&[Register::VOLATILE_SR_WRITE_ENABLE as u8]),
+            spi::Operation::Write(payload),
+        ])?;
 
         Ok(())
     }
