@@ -173,12 +173,21 @@ where
     fn seek(&mut self, from: embedded_io::SeekFrom) -> Result<u64, Self::Error> {
         match from {
             embedded_io::SeekFrom::Start(offset) => {
+                if offset as usize > crate::TOTAL_SIZE {
+                    return Err(embedded_io::ErrorKind::InvalidInput);
+                }
                 self.seek_ptr = offset as usize;
             }
             embedded_io::SeekFrom::End(offset) => {
+                if offset as usize > crate::TOTAL_SIZE {
+                    return Err(embedded_io::ErrorKind::InvalidInput);
+                }
                 self.seek_ptr = crate::TOTAL_SIZE - offset as usize;
             }
             embedded_io::SeekFrom::Current(offset) => {
+                if offset < 0 && (-offset) as usize > self.seek_ptr {
+                    return Err(embedded_io::ErrorKind::InvalidInput);
+                }
                 self.seek_ptr = self.seek_ptr + offset as usize;
             }
         }
