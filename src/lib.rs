@@ -39,6 +39,12 @@ where
     pub delay: D,
     /// address pointer for seek operations
     seek_ptr: usize,
+    /// buffer for read/write operations
+    buffer: [u8; crate::PAGE_SIZE],
+    /// buffer start index
+    buffer_start: usize,
+    /// buffer end index
+    buffer_end: usize,
 }
 
 impl<P, D> W25Q<P, D>
@@ -51,6 +57,9 @@ where
             periph: spi_dev,
             delay: delay,
             seek_ptr: 0x000000,
+            buffer: [0x00; crate::PAGE_SIZE],
+            buffer_start: 0x000000,
+            buffer_end: 0x000100,
         }
     }
 }

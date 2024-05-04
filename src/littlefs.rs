@@ -8,7 +8,6 @@ use littlefs2::driver;
 #[cfg(feature = "littlefs2")]
 use littlefs2::io;
 
-// custom storage trait
 #[cfg(feature = "littlefs2")]
 impl<DI, CommE, D> driver::Storage for W25Q<DI, D>
 where

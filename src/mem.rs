@@ -90,7 +90,7 @@ where
     P: spi::SpiDevice,
     D: delay::DelayNs,
 {
-    type Error = embedded_io::ErrorKind; // Define the associated Error type
+    type Error = embedded_io::ErrorKind;
 }
 
 impl<P, D> embedded_io::Read for W25Q<P, D>
@@ -99,7 +99,23 @@ where
     D: delay::DelayNs,
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
-        todo!();
+        let max_possible = crate::TOTAL_SIZE - self.seek_ptr;
+        let read_size = buf.len().min(max_possible);
+        let mut total_read = 0;
+        // chunked read -- page size
+        while total_read < read_size {
+            let page = self.seek_ptr / crate::PAGE_SIZE;
+            let page_offset = self.seek_ptr % crate::PAGE_SIZE;
+            let page_size = min(crate::PAGE_SIZE - page_offset, read_size - total_read);
+            let mut data = [0; crate::PAGE_SIZE];
+            self.read_from_address(Register::READ_DATA as u8, page as u32, &mut data)
+                .map_err(|e| embedded_io::ErrorKind::BrokenPipe);
+            buf[total_read..total_read + page_size]
+                .copy_from_slice(&data[page_offset..page_offset + page_size]);
+            total_read += page_size;
+            self.seek_ptr += page_size;
+        }
+        Ok(total_read)
     }
 }
 
@@ -109,10 +125,31 @@ where
     D: delay::DelayNs,
 {
     fn fill_buf(&mut self) -> Result<&[u8], Self::Error> {
-        todo!()
+        if self.buffer_start == self.buffer_end {
+            let page = self.seek_ptr / crate::PAGE_SIZE;
+            let page_address = page * crate::PAGE_SIZE;
+            self.buffer_start = 0;
+            self.buffer_end = 0;
+
+            // read complete page into buffer
+            let mut temp = core::mem::replace(&mut self.buffer, [0; crate::PAGE_SIZE]);
+            self.read_from_address(Register::READ_DATA as u8, page_address as u32, &mut temp)
+                .map_err(|e| embedded_io::ErrorKind::BrokenPipe)?;
+            self.buffer = temp;
+
+            self.buffer_end = crate::PAGE_SIZE;
+        }
+
+        Ok(&self.buffer[self.buffer_start..self.buffer_end])
     }
-    fn consume(&mut self, _: usize) {
-        todo!()
+
+    fn consume(&mut self, amt: usize) {
+        self.buffer_start += amt;
+        if self.buffer_start >= self.buffer_end {
+            self.buffer_start = 0;
+            self.buffer_end = 0;
+        }
+        self.seek_ptr += amt;
     }
 }
 
@@ -122,7 +159,9 @@ where
     D: delay::DelayNs,
 {
     fn read_ready(&mut self) -> Result<bool, <Self as embedded_io::ErrorType>::Error> {
-        todo!()
+        self.read_sr1()
+            .map(|sr1| sr1.busy == false)
+            .map_err(|e| embedded_io::ErrorKind::BrokenPipe)
     }
 }
 
@@ -131,8 +170,19 @@ where
     P: spi::SpiDevice,
     D: delay::DelayNs,
 {
-    fn seek(&mut self, _: embedded_io::SeekFrom) -> Result<u64, Self::Error> {
-        todo!()
+    fn seek(&mut self, from: embedded_io::SeekFrom) -> Result<u64, Self::Error> {
+        match from {
+            embedded_io::SeekFrom::Start(offset) => {
+                self.seek_ptr = offset as usize;
+            }
+            embedded_io::SeekFrom::End(offset) => {
+                self.seek_ptr = crate::TOTAL_SIZE - offset as usize;
+            }
+            embedded_io::SeekFrom::Current(offset) => {
+                self.seek_ptr = self.seek_ptr + offset as usize;
+            }
+        }
+        Ok(self.seek_ptr as u64)
     }
 }
 
