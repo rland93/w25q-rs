@@ -16,6 +16,7 @@ mod registers;
 mod types;
 
 use embedded_hal::delay::DelayNs;
+use embedded_hal::spi::SpiDevice;
 
 pub use crate::types::*;
 
@@ -28,31 +29,29 @@ pub const PAGE_COUNT: usize = 65536;
 pub const TOTAL_SIZE: usize = SECTOR_COUNT * SECTOR_SIZE;
 
 ///  device object.
-#[derive(Debug)]
-pub struct W25Q<DI, D> {
-    /// Digital interface (spi)
-    iface: DI,
+pub struct W25Q<P, D>
+where
+    P: SpiDevice,
+    D: DelayNs,
+{
+    pub periph: P,
+    /// erase and write delays
     pub delay: D,
+    /// address pointer for seek operations
+    seek_ptr: usize,
 }
 
-mod private {
-    use super::interface;
-    pub trait Sealed {}
-
-    impl<SPI> Sealed for interface::SpiInterface<SPI> {}
-}
-
-impl<SPI, D> W25Q<interface::SpiInterface<SPI>, D> {
-    /// Create new driver instance
-    pub fn new_with_spi(spi: SPI, delay: D) -> Self {
-        W25Q {
-            iface: interface::SpiInterface { spi },
+impl<P, D> W25Q<P, D>
+where
+    P: SpiDevice,
+    D: DelayNs,
+{
+    pub fn new_with_spi(spi_dev: P, delay: D) -> Self {
+        Self {
+            periph: spi_dev,
             delay: delay,
+            seek_ptr: 0x000000,
         }
-    }
-
-    pub fn destroy(self) -> SPI {
-        return self.iface.destroy();
     }
 }
 
