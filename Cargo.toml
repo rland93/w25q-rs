@@ -17,13 +17,15 @@ keywords = [
 ]
 categories = ["embedded", "hardware-support", "no-std"]
 include = ["/**/*.rs", "/Cargo.toml", "/README.md", "/CHANGELOG.md", "/LICENSE"]
+
 [features]
 default = []
+defmt = ["dep:defmt", "embedded-io/defmt-03"]
 
 [dependencies]
 embedded-hal = "1.0"
 defmt = { version = "0.3", optional = true }
-embedded-io = { version = "0.6.1", features = ["defmt-03"] }
+embedded-io = { version = "0.6.1", default-features = false }
 
 # Necessary to load the example code.
 [dev-dependencies]

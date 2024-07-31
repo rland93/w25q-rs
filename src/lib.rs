@@ -1,6 +1,11 @@
 #![no_std]
 #![deny(unsafe_code)]
 
+#[cfg(feature = "defmt")]
+use defmt::Format;
+
+pub mod io;
+
 use embedded_hal::{
     delay::{self, DelayNs},
     spi::{self, SpiDevice},
@@ -144,6 +149,7 @@ impl SR3 {
 
 #[allow(non_camel_case_types)]
 #[allow(clippy::upper_case_acronyms)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Register {
     WRITE_ENABLE = 0x06,
@@ -202,6 +208,26 @@ where
     buffer_start: usize,
     /// buffer end index
     buffer_end: usize,
+}
+
+#[cfg(feature = "defmt")]
+impl<SPI, DELAY> Format for W25Q<SPI, DELAY>
+where
+    SPI: SpiDevice,
+    DELAY: DelayNs,
+{
+    fn format(&self, f: defmt::Formatter) {
+        let addr = self as *const _ as usize;
+
+        defmt::write!(
+            f,
+            "W25Q@{:#x}: seek ptr: {:#x}, internal buf={:#x}..{:#x}",
+            addr,
+            self.seek_ptr,
+            self.buffer_start,
+            self.buffer_end,
+        );
+    }
 }
 
 impl<SPI, DELAY> W25Q<SPI, DELAY>
@@ -286,6 +312,7 @@ where
     pub(crate) fn write_data(&mut self, command: u8, payload: &[u8]) -> Result<(), SPI::Error> {
         self.periph.transaction(&mut [
             spi::Operation::Write(&[Register::VOLATILE_SR_WRITE_ENABLE as u8]),
+            spi::Operation::Write(&[command]),
             spi::Operation::Write(payload),
         ])?;
 
@@ -300,7 +327,7 @@ where
 
     pub fn read_unique_id(&mut self) -> Result<[u8; 8], SPI::Error> {
         let mut id = [0u8; 8];
-        let mut cmd = [Register::READ_UNIQUE_ID as u8, 0, 0, 0, 0];
+        let cmd = [Register::READ_UNIQUE_ID as u8, 0, 0, 0, 0];
         self.periph
             .transaction(&mut [spi::Operation::Write(&cmd), spi::Operation::Read(&mut id)])?;
         Ok(id)
@@ -379,6 +406,21 @@ where
         cmd[1..4].copy_from_slice(&address.to_be_bytes()[1..]);
         self.periph
             .transaction(&mut [spi::Operation::Write(&cmd), spi::Operation::Read(data)])?;
+        Ok(())
+    }
+
+    pub(crate) fn fast_read_into_internal_buffer(
+        &mut self,
+        address: u32,
+    ) -> Result<(), SPI::Error> {
+        let mut cmd = [Register::FAST_READ as u8, 0, 0, 0, 0];
+        cmd[1..4].copy_from_slice(&address.to_be_bytes()[1..]);
+        self.periph.transaction(&mut [
+            spi::Operation::Write(&cmd),
+            spi::Operation::Read(&mut self.buffer),
+        ])?;
+        self.buffer_start = 0;
+        self.buffer_end = self.buffer.len();
         Ok(())
     }
 
@@ -467,6 +509,10 @@ where
         ])?;
         self.delay.delay_ms(30); // Wait for reset to complete
         Ok(())
+    }
+
+    pub fn capacity(&self) -> u64 {
+        TOTAL_SIZE as u64
     }
 
     fn wait_until_ready(&mut self) -> Result<(), SPI::Error> {

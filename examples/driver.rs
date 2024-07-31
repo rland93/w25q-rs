@@ -36,7 +36,7 @@ fn main() -> ! {
     let mut w25q_dev = W25Q::new_with_spi(spidev, delay);
 
     loop {
-        info!("Starting test cycle");
+        info!("Starting test cycle for {}", w25q_dev);
 
         // Test JEDEC ID
         match w25q_dev.read_jedec_id() {
